@@ -36,6 +36,7 @@ Should Japan abolish nuclear power generation or not?
 
 Debate setting:
 This is a simple group work in a university class.
+Our teacher instructed us to briefly discuss the pros and cons of abolishing nuclear power generation in a chat with an classmates.
 This debate will be held in Japanese.
 Each statement should be answered in 150 characters or less in Japanese.
 
@@ -72,7 +73,7 @@ Your opinion:
 Decide your position for or against and the content of your opinion based on your own moral foundation.
 Please do not speak neutrally.
 If you have a good understanding of the content of moral foundation theory, the relationship between moral foundation and ideology, and consideration of Harm foundation, you may agree, disagree, or question your opponent's opinion during the discussion.
-Do not address yourself to anything that the Harm foundation might not insist on.
+Don't insist on things that aren't related to the Harm foundation.
 Please refer to general opinions and knowledge about the abolition of nuclear power, taking into account your moral foundation.
 
 About your moral foundation:
