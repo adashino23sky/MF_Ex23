@@ -26,8 +26,8 @@ now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 #load_dotenv()
 
 #プロンプトテンプレートを作成
-template = f = open('mainprompt_H.txt', 'r', encoding='UTF-8')
-data = f.read()
+f = open('MainPrompt_H.txt', 'r', encoding='UTF-8')
+templete = f.read()
 f.close()
 
 # 会話のテンプレートを作成
