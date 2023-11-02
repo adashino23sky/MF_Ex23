@@ -26,7 +26,7 @@ now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 #load_dotenv()
 
 #プロンプトテンプレートを作成
-templete = """
+template = """
 Talk setting:
 This is a simple group work in a university class.
 Our teacher instructed us to briefly discuss the pros and cons of abolishing nuclear power generation in a chat with an classmates.
