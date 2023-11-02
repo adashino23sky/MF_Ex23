@@ -26,8 +26,7 @@ now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 #load_dotenv()
 
 #プロンプトテンプレートを作成
-templete = '''
-
+templete = """
 Talk setting:
 This is a simple group work in a university class.
 Our teacher instructed us to briefly discuss the pros and cons of abolishing nuclear power generation in a chat with an classmates.
@@ -88,7 +87,7 @@ My role setting:
 I am a student from the same college as you who will be participating in the same group work.
 No other information is specified.
 I will offer my opinion as I see fit.
-'''
+"""
 
 # 会話のテンプレートを作成
 prompt = ChatPromptTemplate.from_messages([
