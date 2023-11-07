@@ -1,6 +1,4 @@
-# Harm
 # ライブラリをインポート
-# key=str(i) を各botへ忘れずに!
 import streamlit as st
 from streamlit_chat import message
 
@@ -18,7 +16,6 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 import datetime
 import pytz
-import time
 
 #現在時刻
 global now
@@ -35,8 +32,7 @@ template = """
 
 あなたが生まれ変わる具体的な人物（ここではAgent1と表現）を一人考えてください。
 Agent1は日本の普通の大学生です。
-Agent1は「ですます口調」で話します。
-語尾に、にゃんとつけます。
+Agent1は「ですます口調」で話します。語尾ににゃんと言います。
 Agent1は道徳観を持っています。
 
 Agent1の道徳観について:
@@ -82,7 +78,7 @@ prompt = ChatPromptTemplate.from_messages([
         #llm=llm)
     #return conversation
 
-# デコレータを使わない会話履歴読み込み for セッション管理
+# デコレータを使わない会話履歴読み込み
 def load_conversation():
     if not hasattr(st.session_state, "conversation"):
         llm = ChatOpenAI(
@@ -101,35 +97,18 @@ if "generated" not in st.session_state:
     st.session_state.generated = []
 if "past" not in st.session_state:
     st.session_state.past = []
-    
-# 会話のターン数をカウント
-if 'count' not in st.session_state:
-    st.session_state.count = 0
-#st.write(st.session_state.count) # デバッグ用
 
 # 送信ボタンがクリックされた後の処理を行う関数を定義
 def on_input_change():
-    st.session_state.count += 1
-    # n往復目にプロンプトテンプレートの一部を改めて入力
-    #if  st.session_state.count == 3:
-    #    api_user_message = st.session_state.user_message + remind
-    #elif st.session_state.count == 6:
-    #    api_user_message = st.session_state.user_message + remind
-    #elif st.session_state.count == 9:
-    #    api_user_message = st.session_state.user_message + remind
-    #else:
-    #    api_user_message = st.session_state.user_message
-
     user_message = st.session_state.user_message
     conversation = load_conversation()
-    with st.spinner("相手からの返信を待っています。。。"):
-        time.sleep(5)
-        answer = conversation.predict(input=user_message)
+    answer = conversation.predict(input=user_message)
+
     st.session_state.generated.append(answer)
-    st.session_state.past.append(user_message)
     #with st.spinner("入力中。。。"):
             # 任意時間入力中のスピナーを長引かせたい場合はこちら！
-    #st.session_state.past.append(user_message)
+            #time.sleep(60)
+    st.session_state.past.append(user_message)
 
     st.session_state.user_message = ""
     Human_Agent = "Human" 
@@ -140,21 +119,20 @@ def on_input_change():
         AI_Agent: answer
     })
 
-# qualtricdへURL遷移
 def redirect_to_url(url):
     new_tab_js = f"""<script>window.open("{url}", "_blank");</script>"""
     st.markdown(new_tab_js, unsafe_allow_html=True)
 
 # タイトルやキャプション部分のUI
-# st.title("ChatApp")
-# st.caption("Q&A")
-# st.write("議論を行いましょう！")
-user_number = st.text_input("学籍番号を半角で入力してエンターを押してください")
+st.title("ChatApp")
+#st.caption("Q&A")
+st.write("議論を行いましょう！")
+user_number = st.text_input("学籍番号を入力してエンターを押してください")
 if user_number:
-    #st.write(f"こんにちは、{user_number}さん！")
+    st.write(f"こんにちは、{user_number}さん！")
     # 初期済みでない場合は初期化処理を行う
     if not firebase_admin._apps:
-            cred = credentials.Certificate('chat3-109ec-firebase-adminsdk-2zc5h-08e4bf5e34.json') 
+            cred = credentials.Certificate('chatapp-509c9-firebase-adminsdk-5tvj9-9106d52707.json') 
             default_app = firebase_admin.initialize_app(cred)
     db = firestore.client()
     #doc_ref = db.collection(user_number)
@@ -166,16 +144,12 @@ chat_placeholder = st.empty()
 # 会話履歴を表示
 with chat_placeholder.container():
     for i in range(len(st.session_state.generated)):
-        message(st.session_state.past[i],is_user=True, key=str(i))
-        key_generated = str(i) + "keyg"
-        message(st.session_state.generated[i], key=str(key_generated))
+        message(st.session_state.past[i],is_user=True)
+        message(st.session_state.generated[i])
 
 # 質問入力欄と送信ボタンを設置
 with st.container():
-    if  st.session_state.count == 0:
-        user_message = st.text_input("「原子力発電は廃止すべき」という意見に対して、あなたの意見を入力して送信ボタンを押してください", key="user_message")
-    else:
-        user_message = st.text_input("あなたの意見を入力して送信ボタンを押してください", key="user_message")
+    user_message = st.text_input("内容を入力して送信ボタンを押してください", key="user_message")
     st.button("送信", on_click=on_input_change)
 # 質問入力欄 上とどっちが良いか    
 #if user_message := st.chat_input("聞きたいことを入力してね！", key="user_message"):
