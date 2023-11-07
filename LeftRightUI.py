@@ -1,7 +1,6 @@
 # ライブラリをインポート
 import streamlit as st
 from streamlit_chat import message
-
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
@@ -16,11 +15,9 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 import datetime
 import pytz
-
 #現在時刻
 global now
 now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
-
 # 環境変数の読み込み
 #from dotenv import load_dotenv
 #load_dotenv()
@@ -29,12 +26,10 @@ now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 template = """
 あなたと私で議論をします。
 議論のテーマは「日本は原発を廃止すべきか否か」です。
-
 あなたが生まれ変わる具体的な人物（ここではAgent1と表現）を一人考えてください。
 Agent1は日本の普通の大学生です。
-Agent1は「ですます口調」で話します。語尾ににゃんと言います。
+Agent1は「ですます口調」で話します。
 Agent1は道徳観を持っています。
-
 Agent1の道徳観について:
 英語で示します。
 This moral view depends on Haidt's five foundations of moral foundations theory.
@@ -44,9 +39,7 @@ In conversations and opinions about social issues, moral values determine value 
 Of the five foundations, Agent 1 is particularly sensitive to the Harm/Care and Fairness foundations.
 Agent1 initially takes a position of approval.
 Agent1 should engage in conversation according to the findings related to social issues and moral foundations theory.
-
 この返答の後、あなたはこのAgent1として生まれ変わります。
-
 私はAgent1の話し相手です。
 Agent1と私は、ステップバイステップで会話を進めていきます。
 私たちは同じ講義を受けています。先生はグループワークとして簡単な議論をするように指示しました。
@@ -63,7 +56,6 @@ prompt = ChatPromptTemplate.from_messages([
     MessagesPlaceholder(variable_name="history"),
     HumanMessagePromptTemplate.from_template("{input}"),
 ])
-
 #会話の読み込みを行う関数を定義
 #@st.cache_resource
 #def load_conversation():
@@ -77,7 +69,6 @@ prompt = ChatPromptTemplate.from_messages([
         #prompt=prompt,
         #llm=llm)
     #return conversation
-
 # デコレータを使わない会話履歴読み込み
 def load_conversation():
     if not hasattr(st.session_state, "conversation"):
@@ -91,25 +82,21 @@ def load_conversation():
             prompt=prompt,
             llm=llm)
     return st.session_state.conversation
-
 # 質問と回答を保存するための空のリストを作成
 if "generated" not in st.session_state:
     st.session_state.generated = []
 if "past" not in st.session_state:
     st.session_state.past = []
-
 # 送信ボタンがクリックされた後の処理を行う関数を定義
 def on_input_change():
     user_message = st.session_state.user_message
     conversation = load_conversation()
     answer = conversation.predict(input=user_message)
-
     st.session_state.generated.append(answer)
     #with st.spinner("入力中。。。"):
             # 任意時間入力中のスピナーを長引かせたい場合はこちら！
             #time.sleep(60)
     st.session_state.past.append(user_message)
-
     st.session_state.user_message = ""
     Human_Agent = "Human" 
     AI_Agent = "AI" 
@@ -118,11 +105,9 @@ def on_input_change():
         Human_Agent: user_message,
         AI_Agent: answer
     })
-
 def redirect_to_url(url):
     new_tab_js = f"""<script>window.open("{url}", "_blank");</script>"""
     st.markdown(new_tab_js, unsafe_allow_html=True)
-
 # タイトルやキャプション部分のUI
 st.title("ChatApp")
 #st.caption("Q&A")
@@ -137,16 +122,13 @@ if user_number:
     db = firestore.client()
     #doc_ref = db.collection(user_number)
     #doc_ref = db.collection(u'tour').document(str(now))
-
 # 会話履歴を表示するためのスペースを確保
 chat_placeholder = st.empty()
-
 # 会話履歴を表示
 with chat_placeholder.container():
     for i in range(len(st.session_state.generated)):
         message(st.session_state.past[i],is_user=True)
         message(st.session_state.generated[i])
-
 # 質問入力欄と送信ボタンを設置
 with st.container():
     user_message = st.text_input("内容を入力して送信ボタンを押してください", key="user_message")
@@ -154,8 +136,6 @@ with st.container():
 # 質問入力欄 上とどっちが良いか    
 #if user_message := st.chat_input("聞きたいことを入力してね！", key="user_message"):
 #    on_input_change()
-
-
 redirect_link = "https://nagoyapsychology.qualtrics.com/jfe/form/SV_cw48jqskbAosSLY"
 st.markdown(f'<a href="{redirect_link}" target="_blank">5往復のチャットが終了したらこちらを押してください。</a>', unsafe_allow_html=True)
 #if st.button("終了したらこちらを押してください。画面が遷移します。"):
