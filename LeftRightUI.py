@@ -33,7 +33,7 @@ llm = ChatOpenAI(
     temperature=0,
     max_tokens=None,
     timeout=None,
-    max_retries=2,
+    max_retries=0,
     api_key= st.secrets.openai_api_key
 )
 
@@ -144,6 +144,28 @@ doc_ref = db.collection("posts").document("Google")
 # Then get the data at that reference.
 doc = doc_ref.get()
 
+# チャット履歴更新
+def _init_messages():
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+if __name__ == '__main__':
+    init_messages()
+
+    # 過去のメッセージを表示
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # ユーザーの入力受付
+    if user_input := st.chat_input("input your message"):
+        # メッセージを保管
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        stop(3)
+        answer_message = llm(HumanPrompt = user_input)
+        load_conversation(user_input, answer_message)
+        st.session_state.messages.append({"role": "Agent", "content": answer_message})
+
 # Let's see what we got!
  if "user" not in st.session_state:
         st.session_state.user = CHATBOT_USER
@@ -161,18 +183,19 @@ doc = doc_ref.get()
 st.write("input your id: ", user_id)
 st.write("input your conversation: ", )
 st.session_state.user_info 
-# Add a new user to the database
+
 db = firestore.Client()
-doc_ref = db.collection('users').document('alovelace')
+doc_ref = db.collection(user_id).document(now)
 doc_ref.set({
-    'first': 'Ada',
-    'last': 'Lovelace',
-    'born': 1815
+    'user': user_content,
+    'agent': agent_content
 })
+
+def send_message():
+    
 
 # Then query to list all users
 users_ref = db.collection('users')
-
 for doc in users_ref.stream():
     print('{} => {}'.format(doc.id, doc.to_dict()))
 ## store data to firebase
