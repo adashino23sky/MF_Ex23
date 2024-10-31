@@ -130,7 +130,7 @@ def redirect_to_url(url):
     new_tab_js = f"""<script>window.open("{url}", "_blank");</script>"""
     st.markdown(new_tab_js, unsafe_allow_html=True)
 '''
-
+'''
 # Use Firebase
 ## connect and authenticate firebase
 from google.cloud import firestore
@@ -145,8 +145,22 @@ doc_ref = db.collection("posts").document("Google")
 doc = doc_ref.get()
 
 # Let's see what we got!
-st.write("The id is: ", doc.id)
-st.write("The contents are: ", doc.to_dict())(
+ if "user" not in st.session_state:
+        st.session_state.user = CHATBOT_USER
+
+    if "chats_ref" not in st.session_state:
+        db = firestore.Client(project=GCP_PROJECT)
+        user_ref = db.collection("users").document(st.session_state.user)
+        st.session_state.chats_ref = user_ref.collection("chats")
+
+    if "titles" not in st.session_state:
+        st.session_state.titles = [
+                doc.to_dict()["title"]
+                for doc in st.session_state.chats_ref.order_by("created").stream()
+                ]
+st.write("input your id: ", user_id)
+st.write("input your conversation: ", )
+st.session_state.user_info 
 # Add a new user to the database
 db = firestore.Client()
 doc_ref = db.collection('users').document('alovelace')
