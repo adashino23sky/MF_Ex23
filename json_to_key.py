@@ -1,3 +1,8 @@
+'''
+このpyファイルは"firestore-key.json"をgitの".streamlit/secrets.toml"に書き出すものです
+".streamlit/secrets.toml"の内容をstreamlitのsecretに貼り付けてください
+一度使った後は、"firestore-key.json"ないし".streamlit/secrets.toml"は削除してください
+'''
 import toml
 
 output_file = ".streamlit/secrets.toml"
