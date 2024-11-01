@@ -1,33 +1,45 @@
 # ライブラリをインポート
+# streamlit
 import streamlit as st
 from streamlit_chat import message
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+# 
+from operator import itemgetter
+from typing import List
+
+# langchain
+from langchain_openai import ChatOpenAI # OpenAIの利用
+from langchain_core.chat_history import BaseChatMessageHistory # 会話履歴の保存
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder # プロンプトのひな形
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage # 各入出力の属性付け
+from langchain_core.pydantic_v1 import BaseModel, Field # pydantic: 各オブジェクトのメタデータ宣言とか、検証とかデータ型管理が容易になるライブラリ、いる？
+from langchain_core.runnables import (
+    RunnableLambda,
+    ConfigurableFieldSpec,
+    RunnablePassthrough,
+) # 動的な会話に必須
+from langchain_core.runnables.history import RunnableWithMessageHistory # 動的にチャット履歴を保存
+
+# langchain*streamlit
 from langchain_community.chat_message_histories.streamlit import StreamlitChatMessageHistory
 
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationChain
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-    MessagesPlaceholder,
-)
+# firebase
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+
+# 時間管理
 import datetime
-import pytz
-#現在時刻
-global now
+import pytz # タイムゾーンに直せるやつ
+global now # PCから現在時刻
 now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 
-# read system prompt text
+# システムプロンプトを読み込み
 with open(fname, 'r') as f:
-    templete = fname.read()
+    template = fname.read()
 
-from langchain_openai import ChatOpenAI
-# initializing chat model
+# モデルのインスタンス生成
 llm = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0,
@@ -37,95 +49,143 @@ llm = ChatOpenAI(
     api_key= st.secrets.openai_api_key
 )
 
-from langchain_core.messages import AIMessage
-from langchain_core.prompts.chat import HumanMessagePromptTemplate
+# 会話履歴保存・操作のクラス作成、会話はグローバル変数内に保存するよー
+class InMemoryHistory(BaseChatMessageHistory, BaseModel):
+    """In memory implementation of chat message history."""
+    messages: List[BaseMessage] = Field(default_factory=list)
+    def add_messages(self, messages: List[BaseMessage]) -> None: # 履歴追加
+        """Add a list of messages to the store"""
+        self.messages.extend(messages) 
+    def clear(self) -> None: # 履歴削除
+        self.messages = []
 
-prompt_template = ChatPromptTemplate.from_messages(
-    [
-        SystemMessage(content="You are a helpful assistant"),
-        MessagesPlaceholder("history"),
-        HumanMessagePromptTemplate.from_template("{question}")
-    ]
-)
-history = [
-        HumanMessage(content="hi! my name is 太郎"),
-        AIMessage(content="hello 太郎"),
-        ]
-
-prompt = prompt_template.invoke(
-   {
-       "history": history,
-       "question": "Call me my name."
-   }
-)
-print(prompt.messages)
-
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are very powerful assistant, but don't know current events",
-        ),
-        ("user", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ]
-)
-# 会話のテンプレートを作成
+# 毎回送信するプロンプト設定、システムプロンプトとメッセージ履歴をあわせて送信する
 prompt = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(template),
     MessagesPlaceholder(variable_name="history"),
-    HumanMessagePromptTemplate.from_template("{input}"),
+    HumanMessagePromptTemplate.from_template("{input}")
 ])
-#会話の読み込みを行う関数を定義
-#@st.cache_resource
-#def load_conversation():
-    #llm = ChatOpenAI(
-        #model_name="gpt-4-0125-preview",
-        #temperature=0
-    #)
-    #memory = ConversationBufferMemory(return_messages=True)
-    #conversation = ConversationChain(
-        #memory=memory,
-        #prompt=prompt,
-        #llm=llm)
-    #return conversation
-# デコレータを使わない会話履歴読み込み
-def load_conversation():
-    if not hasattr(st.session_state, "conversation"):
-        llm = ChatOpenAI(
-            model_name="gpt-4-0125-preview",
-            temperature=0
-        )
-        memory = ConversationBufferMemory(return_messages=True)
-        st.session_state.conversation = ConversationChain(
-            memory=memory,
-            prompt=prompt,
-            llm=llm)
-    return st.session_state.conversation
-# 質問と回答を保存するための空のリストを作成
-if "generated" not in st.session_state:
-    st.session_state.generated = []
-if "past" not in st.session_state:
-    st.session_state.past = []
+
+# プロンプトとモデルを紐付け、langchain特有のパイプライン処理？
+chain = prompt | llm
+
+# 履歴管理
+chain_with_history = RunnableWithMessageHistory(
+    chain,
+    get_by_session_id,
+    input_messages_key="input",
+    history_messages_key="history",
+)
+
+# user_idセッションにuser_inputを入力した結果を表示
+chain_with_history.invoke(
+    {"input": user_input},
+    config={"configurable": {"session_id": }}
+))
+
+
+# 会話履歴を格納
+store = {}
+# セッションIDをuser_idで管理
+session_id = {}.format(user_id)
+
+def get_by_session_id(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = InMemoryHistory()
+    return store[session_id]
+
+
+history = StreamlitChatMessageHistory(key="chat_messages")
+
+history.add_user_message("hi!")
+history.add_ai_message("whats up?")
+
+# AIの発言を履歴に入力
+history.add_messages([AIMessage(content=user_input)])
+
+# userの発言をチャットに入力
+history.add_messages([HumanMessage(content=user_input)])
+
+def main():
+    st.title('チャットボット')
+    if not "state" in st.session_state:
+        st.session_state.state = 1
+    if st.session_state.state == 1:
+        input_id()
+    elif st.session_state.state == 2:
+        chat_page()
+    elif st.session_state.state == 3:
+        chat_ended()
+    elif st.session_state.state == 4:
+        ()
+
+def input_id():
+    st.write("idを入力してください")
+    st.session_state.user_id = st.input("IDを入力")
+    st.session_state.state = 2
+
+def chat_page():
+    st.write("idを入力してください")
+    st.session_state.user_id = st.input("IDを入力")
+    st.session_state.state = 2
+
+def chat_ended():
+    chat_container = st.container(height=600) # st.containerでブロックを定義
+    st.write("お疲れ様でした、下のURLを押してアンケートへ進んでください")
+    for message in st.session_state.messages:
+        with chat_container.chat_message(message["role"]):
+            st.markdown(message["content"])
+    new_tab_js = ()
+    st.markdown(new_tab_js, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
+
+elif page==2:
+    st.chat_input("", on_submit=chat_input_change())
 # 送信ボタンがクリックされた後の処理を行う関数を定義
-def on_input_change():
-    user_message = st.session_state.user_message
-    conversation = load_conversation()
-    answer = conversation.predict(input=user_message)
-    st.session_state.generated.append(answer)
-    #with st.spinner("入力中。。。"):
-            # 任意時間入力中のスピナーを長引かせたい場合はこちら！
-            #time.sleep(1)
-    st.session_state.past.append(user_message)
-    st.session_state.user_message = ""
-    Human_Agent = "Human" 
-    AI_Agent = "AI" 
-    doc_ref = db.collection(user_number).document(str(now))
+
+with page2:
+    chat_container = st.container(height=600) # st.containerでブロックを定義
+    st.session_state.prompt = st.chat_input("入力してね", on_submit=chat_input_change())
+    for message in st.session_state.messages:
+        with chat_container.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+def chat_input_change(user_input):
+    if len(message) == 10:
+        end()
+    st.spinner("待機中…")
+    time.sleep(3)
+    answer = chain_with_history.invoke(
+        {"input": user_input},
+        config={"configurable": {"session_id": user_id}})
+    st.session_state.message["user"].append(user_input)
+    st.session_state.message["user"].append(answer)
+    def data_to_fb(user_id, user_msg, ai_msg):
+    doc_ref = db.collection(user_id).document(str(now))
     doc_ref.set({
-        Human_Agent: user_message,
+        Human: user_message,
         AI_Agent: answer
     })
+    with st.chat_message("user"):
+        st.write(user_input)
+    with st.chat_message("Agent"):
+        st.write(answer)
+    if len(message) == 10:
+        st.session_state.page = 3
+        break
+    st.chat_input
+
+with page3:
+    st.write("終了しました、下のボタンを押してください")
+    st.button("", on_click=page_to_4())
+
+def page_to_2():
+    st.session_state.page = "page2"
+def page_to_3():
+    st.session_state.page = "page3"
+
 def redirect_to_url(url):
     new_tab_js = f"""<script>window.open("{url}", "_blank");</script>"""
     st.markdown(new_tab_js, unsafe_allow_html=True)
@@ -146,17 +206,27 @@ doc = doc_ref.get()
 
 # チャット履歴更新
 def _init_messages():
+if prompt := st.chat_input("Hit me up with your queries!"):  
     if "messages" not in st.session_state:
         st.session_state.messages = []
-        db = firestore.Client()
-doc_ref = db.collection(user_id).document(now)
-doc_ref.set({
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = hoge # id入力時 
+    if "user_message" := st.chat_input(user_message):
+        st.session_state.messages.append({"role": "user", "content": user_message})
+    db = firestore.Client()
+    doc_ref = db.collection(user_id).document(now)
+    doc_ref.set({
     'user': user_content,
     'agent': agent_content
-})
+    })
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 def init_message():
-    
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown(full_response)
 
 if __name__ == '__main__':
     init_messages()
