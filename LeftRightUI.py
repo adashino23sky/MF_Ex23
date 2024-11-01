@@ -148,6 +148,15 @@ doc = doc_ref.get()
 def _init_messages():
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        db = firestore.Client()
+doc_ref = db.collection(user_id).document(now)
+doc_ref.set({
+    'user': user_content,
+    'agent': agent_content
+})
+
+def init_message():
+    
 
 if __name__ == '__main__':
     init_messages()
@@ -157,10 +166,17 @@ if __name__ == '__main__':
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+
     # ユーザーの入力受付
     if user_input := st.chat_input("input your message"):
         # メッセージを保管
         st.session_state.messages.append({"role": "user", "content": user_input})
+        db = firestore.Client()
+        doc_ref = db.collection(user_id).document(now)
+        doc_ref.set({
+        'user': user_content,
+        'agent': agent_content
+        })
         stop(3)
         answer_message = llm(HumanPrompt = user_input)
         load_conversation(user_input, answer_message)
