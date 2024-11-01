@@ -37,7 +37,7 @@ now = datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
 
 # システムプロンプトを読み込み
 with open(fname, 'r') as f:
-    template = fname.read()
+    systemprompt = fname.read()
 
 # モデルのインスタンス生成
 llm = ChatOpenAI(
@@ -151,6 +151,36 @@ def chat_input_change():
     if st.session_state.talk ==5:
         st.session_state.state = 3
 
+
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_openai import ChatOpenAI
+
+from langchain_community.chat_message_histories import (
+    StreamlitChatMessageHistory,
+)
+
+history = StreamlitChatMessageHistory(key="chat_messages")
+
+history.add_user_message("hi!")
+history.add_ai_message("whats up?")
+
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", "{systemprompt}"),
+        MessagesPlaceholder(variable_name="history"),
+        ("human", "{question}"),
+    ]
+)
+
+chain = prompt | llm
+chain_with_history = RunnableWithMessageHistory(
+    chain,
+    lambda session_id: msgs,  # Always return the instance created earlier
+    input_messages_key="question",
+    history_messages_key="history",
+)
+
 def main():
     st.title('チャットボット')
     if not "state" in st.session_state:
@@ -164,101 +194,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-'''
-# Use Firebase
-## connect and authenticate firebase
-from google.cloud import firestore
-
-# Authenticate to Firestore with the JSON account key.
-db = firestore.Client.from_service_account_json("firestore-key.json")
-
-# Create a reference to the Google post.
-doc_ref = db.collection("posts").document("Google")
-
-# Then get the data at that reference.
-doc = doc_ref.get()
-
-# チャット履歴更新
-def _init_messages():
-if prompt := st.chat_input("Hit me up with your queries!"):  
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "user_id" not in st.session_state:
-        st.session_state.user_id = hoge # id入力時 
-    if "user_message" := st.chat_input(user_message):
-        st.session_state.messages.append({"role": "user", "content": user_message})
-    db = firestore.Client()
-    doc_ref = db.collection(user_id).document(now)
-    doc_ref.set({
-    'user': user_content,
-    'agent': agent_content
-    })
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-def init_message():
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        message_placeholder.markdown(full_response)
-
-if __name__ == '__main__':
-    init_messages()
-
-    # 過去のメッセージを表示
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-
-    # ユーザーの入力受付
-    if user_input := st.chat_input("input your message"):
-        # メッセージを保管
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        db = firestore.Client()
-        doc_ref = db.collection(user_id).document(now)
-        doc_ref.set({
-        'user': user_content,
-        'agent': agent_content
-        })
-        stop(3)
-        answer_message = llm(HumanPrompt = user_input)
-        load_conversation(user_input, answer_message)
-        st.session_state.messages.append({"role": "Agent", "content": answer_message})
-
-# Let's see what we got!
- if "user" not in st.session_state:
-        st.session_state.user = CHATBOT_USER
-
-    if "chats_ref" not in st.session_state:
-        db = firestore.Client(project=GCP_PROJECT)
-        user_ref = db.collection("users").document(st.session_state.user)
-        st.session_state.chats_ref = user_ref.collection("chats")
-
-    if "titles" not in st.session_state:
-        st.session_state.titles = [
-                doc.to_dict()["title"]
-                for doc in st.session_state.chats_ref.order_by("created").stream()
-                ]
-st.write("input your id: ", user_id)
-st.write("input your conversation: ", )
-st.session_state.user_info 
-
-db = firestore.Client()
-doc_ref = db.collection(user_id).document(now)
-doc_ref.set({
-    'user': user_content,
-    'agent': agent_content
-})
-
-def send_message():
-    
-
-# Then query to list all users
-users_ref = db.collection('users')
-for doc in users_ref.stream():
-    print('{} => {}'.format(doc.id, doc.to_dict()))
-## store data to firebase
-##
-'''
