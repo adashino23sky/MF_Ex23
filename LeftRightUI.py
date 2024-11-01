@@ -3,7 +3,7 @@
 import streamlit as st
 from streamlit_chat import message
 
-# 
+# ???
 from operator import itemgetter
 from typing import List
 
@@ -86,8 +86,6 @@ chain_with_history.invoke(
 
 # 会話履歴を格納
 store = {}
-# セッションIDをuser_idで管理
-session_id = {}.format(user_id)
 
 def get_by_session_id(session_id: str) -> BaseChatMessageHistory:
     if session_id not in store:
@@ -106,6 +104,53 @@ history.add_messages([AIMessage(content=user_input)])
 # userの発言をチャットに入力
 history.add_messages([HumanMessage(content=user_input)])
 
+def input_id():
+    st.write("idを入力してください")
+    st.session_state.user_id = st.input("IDを入力")
+    st.session_state.state = 2
+
+def chat_page():
+    chat_container = st.container(height=600) # st.containerでブロックを定義
+    if not "messages" in st.session_state:
+        break
+    else:
+        for message in st.session_state.messages:
+            with chat_container.chat_message(message["role"]):
+                st.markdown(message["content"])
+    st.session_state.user_input = st.chat_input("入力してね", on_submit=chat_input_change())
+
+def chat_ended():
+    # チャット履歴を表示
+    chat_container = st.container(height=600) # st.containerでブロックを定義
+    for message in st.session_state.messages:
+            with chat_container.chat_message(message["role"]):
+                st.markdown(message["content"])
+    st.write("お疲れ様でした、下のURLを押してアンケートへ進んでください")
+    new_tab_js = ()
+    st.markdown(new_tab_js, unsafe_allow_html=True)
+
+def chat_input_change():
+    # 待機させる
+    st.spinner("待機中…")
+    time.sleep(3)
+    # 生成
+    answer = chain_with_history.invoke(
+        {"input": st.session_state.user_input},
+        config={"configurable": {"session_id": st.session_state.user_id}})
+    # 保存
+    st.session_state.message["User"].append(st.session_state.user_input)
+    st.session_state.message["Agent"].append(answer)
+    # 加工してfbに保存
+    def data_to_fb(user_id, user_msg, ai_msg):
+    doc_ref = db.collection(user_id).document(str(now))
+    doc_ref.set({
+        Human: user_message,
+        AI_Agent: answer
+    })
+    # 一定数会話したら終了画面へ
+    if st.session_state.talk ==5:
+        st.session_state.state = 3
+
 def main():
     st.title('チャットボット')
     if not "state" in st.session_state:
@@ -116,80 +161,10 @@ def main():
         chat_page()
     elif st.session_state.state == 3:
         chat_ended()
-    elif st.session_state.state == 4:
-        ()
-
-def input_id():
-    st.write("idを入力してください")
-    st.session_state.user_id = st.input("IDを入力")
-    st.session_state.state = 2
-
-def chat_page():
-    st.write("idを入力してください")
-    st.session_state.user_id = st.input("IDを入力")
-    st.session_state.state = 2
-
-def chat_ended():
-    chat_container = st.container(height=600) # st.containerでブロックを定義
-    st.write("お疲れ様でした、下のURLを押してアンケートへ進んでください")
-    for message in st.session_state.messages:
-        with chat_container.chat_message(message["role"]):
-            st.markdown(message["content"])
-    new_tab_js = ()
-    st.markdown(new_tab_js, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
 
-elif page==2:
-    st.chat_input("", on_submit=chat_input_change())
-# 送信ボタンがクリックされた後の処理を行う関数を定義
-
-with page2:
-    chat_container = st.container(height=600) # st.containerでブロックを定義
-    st.session_state.prompt = st.chat_input("入力してね", on_submit=chat_input_change())
-    for message in st.session_state.messages:
-        with chat_container.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-def chat_input_change(user_input):
-    if len(message) == 10:
-        end()
-    st.spinner("待機中…")
-    time.sleep(3)
-    answer = chain_with_history.invoke(
-        {"input": user_input},
-        config={"configurable": {"session_id": user_id}})
-    st.session_state.message["user"].append(user_input)
-    st.session_state.message["user"].append(answer)
-    def data_to_fb(user_id, user_msg, ai_msg):
-    doc_ref = db.collection(user_id).document(str(now))
-    doc_ref.set({
-        Human: user_message,
-        AI_Agent: answer
-    })
-    with st.chat_message("user"):
-        st.write(user_input)
-    with st.chat_message("Agent"):
-        st.write(answer)
-    if len(message) == 10:
-        st.session_state.page = 3
-        break
-    st.chat_input
-
-with page3:
-    st.write("終了しました、下のボタンを押してください")
-    st.button("", on_click=page_to_4())
-
-def page_to_2():
-    st.session_state.page = "page2"
-def page_to_3():
-    st.session_state.page = "page3"
-
-def redirect_to_url(url):
-    new_tab_js = f"""<script>window.open("{url}", "_blank");</script>"""
-    st.markdown(new_tab_js, unsafe_allow_html=True)
-'''
 '''
 # Use Firebase
 ## connect and authenticate firebase
@@ -286,3 +261,4 @@ for doc in users_ref.stream():
     print('{} => {}'.format(doc.id, doc.to_dict()))
 ## store data to firebase
 ##
+'''
