@@ -160,7 +160,7 @@ from langchain_community.chat_message_histories import (
     StreamlitChatMessageHistory,
 )
 
-history = StreamlitChatMessageHistory(key="chat_messages")
+history = StreamlitChatMessageHistory(key="chat_messages_startedfrom_{}".format(now))
 
 history.add_user_message("hi!")
 history.add_ai_message("whats up?")
@@ -169,7 +169,7 @@ prompt = ChatPromptTemplate.from_messages(
     [
         ("system", "{systemprompt}"),
         MessagesPlaceholder(variable_name="history"),
-        ("human", "{question}"),
+        ("human", "{user_input}"),
     ]
 )
 
@@ -177,9 +177,30 @@ chain = prompt | llm
 chain_with_history = RunnableWithMessageHistory(
     chain,
     lambda session_id: msgs,  # Always return the instance created earlier
-    input_messages_key="question",
+    input_messages_key="input",
     history_messages_key="history",
 )
+
+
+if prompt := st.chat_input():
+    st.chat_message("User").write(user_input)
+    # Note: new messages are saved to history automatically by Langchain during run
+    config = {"configurable": {"session_id": st.session_state.user_id}}
+    response = chain_with_history.invoke({"input": user_input}, config)
+    st.chat_message("Agent").write(response.content)
+
+# Draw the messages at the end, so newly generated ones show up immediately
+with view_messages:
+    """
+    Message History initialized with:
+    ```python
+    msgs = StreamlitChatMessageHistory(key="langchain_messages")
+    ```
+
+    Contents of `st.session_state.langchain_messages`:
+    """
+    view_messages.json(st.session_state.langchain_messages)
+
 
 def main():
     st.title('チャットボット')
