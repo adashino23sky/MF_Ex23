@@ -49,74 +49,49 @@ llm = ChatOpenAI(
     api_key= st.secrets.openai_api_key
 )
 
-# 会話履歴保存・操作のクラス作成、会話はグローバル変数内に保存するよー
-class InMemoryHistory(BaseChatMessageHistory, BaseModel):
-    """In memory implementation of chat message history."""
-    messages: List[BaseMessage] = Field(default_factory=list)
-    def add_messages(self, messages: List[BaseMessage]) -> None: # 履歴追加
-        """Add a list of messages to the store"""
-        self.messages.extend(messages) 
-    def clear(self) -> None: # 履歴削除
-        self.messages = []
-
-# 毎回送信するプロンプト設定、システムプロンプトとメッセージ履歴をあわせて送信する
-prompt = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template(template),
-    MessagesPlaceholder(variable_name="history"),
-    HumanMessagePromptTemplate.from_template("{input}")
-])
-
-# プロンプトとモデルを紐付け、langchain特有のパイプライン処理？
+# プロンプト設定
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", systemprompt),
+        MessagesPlaceholder(variable_name="history"),
+        ("human", "{input_message}"),
+    ]
+)
+# chain設定
 chain = prompt | llm
-
-# 履歴管理
 chain_with_history = RunnableWithMessageHistory(
     chain,
-    get_by_session_id,
-    input_messages_key="input",
+    lambda session_id: msgs,  # Always return the instance created earlier
+    input_messages_key="input_message",
     history_messages_key="history",
 )
 
-# user_idセッションにuser_inputを入力した結果を表示
-chain_with_history.invoke(
-    {"input": user_input},
-    config={"configurable": {"session_id": }}
-))
-
-
-# 会話履歴を格納
-store = {}
-
-def get_by_session_id(session_id: str) -> BaseChatMessageHistory:
-    if session_id not in store:
-        store[session_id] = InMemoryHistory()
-    return store[session_id]
-
-
-history = StreamlitChatMessageHistory(key="chat_messages")
-
-history.add_user_message("hi!")
-history.add_ai_message("whats up?")
-
-# AIの発言を履歴に入力
-history.add_messages([AIMessage(content=user_input)])
-
-# userの発言をチャットに入力
-history.add_messages([HumanMessage(content=user_input)])
-
 def input_id():
     st.write("idを入力してください")
-    st.session_state.user_id = st.input("IDを入力")
+    st.session_state.user_id = st.input("IDを入力") # ユーザID取得
+    # セッションID初期化
+    if not "conversation_key" in st.session_state:
+        st.session_state.conversation_key = "{}_{}".format(st.session_state.user_id, now)
     st.session_state.state = 2
 
 def chat_page():
     chat_container = st.container(height=600) # st.containerでブロックを定義
-    if not "messages" in st.session_state:
-        break
+    # 会話ログ格納開始
+    if not "msgs" in st.session_state:
+        msgs = StreamlitChatMessageHistory(key=st.session_state.conversation_key)
     else:
         for message in st.session_state.messages:
             with chat_container.chat_message(message["role"]):
                 st.markdown(message["content"])
+    for msg in msgs.messages:
+        st.chat_message(msg.type).write(msg.content)
+    if user_input := st.chat_input():
+        st.chat_message("human").write(user_input)
+        # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called.
+        config = {"configurable": {"session_id": st.session_state.conversation_key}}
+        response = chain_with_history.invoke({"input_message": user_input}, config)
+        st.chat_message("ai").write(response.content)
+
     st.session_state.user_input = st.chat_input("入力してね", on_submit=chat_input_change())
 
 def chat_ended():
@@ -165,38 +140,31 @@ history = StreamlitChatMessageHistory(key="chat_messages_startedfrom_{}".format(
 history.add_user_message("hi!")
 history.add_ai_message("whats up?")
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "{systemprompt}"),
-        MessagesPlaceholder(variable_name="history"),
-        ("human", "{user_input}"),
-    ]
-)
-
-chain = prompt | llm
-chain_with_history = RunnableWithMessageHistory(
-    chain,
-    lambda session_id: msgs,  # Always return the instance created earlier
-    input_messages_key="input",
-    history_messages_key="history",
-)
 
 
-if prompt := st.chat_input():
-    st.chat_message("User").write(user_input)
-    # Note: new messages are saved to history automatically by Langchain during run
-    config = {"configurable": {"session_id": st.session_state.user_id}}
-    response = chain_with_history.invoke({"input": user_input}, config)
-    st.chat_message("Agent").write(response.content)
+
+
+
+# 最初のAI入力
+#if len(msgs.messages) == 0:
+#    msgs.add_ai_message("How can I help you?")
+
+# 表示
+for msg in msgs.messages:
+    st.chat_message(msg.type).write(msg.content)
+# 入力したときに表示
+if user_input := st.chat_input():
+    # 入力したときに表示
+    st.chat_message("user").write(user_input)
+    # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called.
+    config = {"configurable": {"session_id": st.session_state.conversation_key}}
+    response = chain_with_history.invoke({"input": prompt}, config)
+    
+    time.sleep(3)
+    st.chat_message("agent").write(response.content)
 
 # Draw the messages at the end, so newly generated ones show up immediately
-with view_messages:
-    """
-    Message History initialized with:
-    ```python
-    msgs = StreamlitChatMessageHistory(key="langchain_messages")
-    ```
-
+with 
     Contents of `st.session_state.langchain_messages`:
     """
     view_messages.json(st.session_state.langchain_messages)
