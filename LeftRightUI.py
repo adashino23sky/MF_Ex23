@@ -87,6 +87,10 @@ def chat_page():
     for message in st.session_state.messages:
         with chat_container.chat_message(message["role"]):
             st.markdown(message["content"])
+    '''
+    for msg in msgs.messages:
+        st.chat_message(msg.type).write(msg.content)
+    '''
     if user_input := st.chat_input("入力してね"):
         st.chat_message("human").write(user_input)
         st.spinner("待機中…")
@@ -94,8 +98,8 @@ def chat_page():
         # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called. 
         config = {"configurable": {"session_id": st.session_state.conversation_key}}
         response = chain_with_history.invoke({"input_message": user_input}, config)
-        st.session_state.message["human"].append(st.session_state.user_input)
-        st.session_state.message["ai"].append(response)
+        st.session_state.message("ai").write(response.content)
+
 
 def chat_ended():
     # チャット履歴を表示
@@ -113,13 +117,6 @@ def chat_ended():
         AI_Agent: answer
     })
 
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI
-
-from langchain_community.chat_message_histories import (
-    StreamlitChatMessageHistory,
-)
 
 
 # 最初のAI入力
