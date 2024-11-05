@@ -74,25 +74,28 @@ def input_id():
         st.session_state.conversation_key = "{}_{}".format(st.session_state.user_id, now)
     st.session_state.state = 2
 
+# Display chat messages from history on app rerun
+
+
 def chat_page():
     chat_container = st.container(height=600) # st.containerでブロックを定義
     # 会話ログ格納開始
     if not "msgs" in st.session_state:
         msgs = StreamlitChatMessageHistory(key=st.session_state.conversation_key)
-    else:
-        for message in st.session_state.messages:
-            with chat_container.chat_message(message["role"]):
-                st.markdown(message["content"])
-    for msg in msgs.messages:
-        st.chat_message(msg.type).write(msg.content)
-    if user_input := st.chat_input():
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    for message in st.session_state.messages:
+        with chat_container.chat_message(message["role"]):
+            st.markdown(message["content"])
+    if user_input := st.chat_input("入力してね"):
         st.chat_message("human").write(user_input)
-        # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called.
+        st.spinner("待機中…")
+        time.sleep(5)
+        # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called. 
         config = {"configurable": {"session_id": st.session_state.conversation_key}}
         response = chain_with_history.invoke({"input_message": user_input}, config)
-        st.chat_message("ai").write(response.content)
-
-    st.session_state.user_input = st.chat_input("入力してね", on_submit=chat_input_change())
+        st.session_state.message["human"].append(st.session_state.user_input)
+        st.session_state.message["ai"].append(response)
 
 def chat_ended():
     # チャット履歴を表示
@@ -103,29 +106,12 @@ def chat_ended():
     st.write("お疲れ様でした、下のURLを押してアンケートへ進んでください")
     new_tab_js = ()
     st.markdown(new_tab_js, unsafe_allow_html=True)
-
-def chat_input_change():
-    # 待機させる
-    st.spinner("待機中…")
-    time.sleep(3)
-    # 生成
-    answer = chain_with_history.invoke(
-        {"input": st.session_state.user_input},
-        config={"configurable": {"session_id": st.session_state.user_id}})
-    # 保存
-    st.session_state.message["User"].append(st.session_state.user_input)
-    st.session_state.message["Agent"].append(answer)
-    # 加工してfbに保存
     def data_to_fb(user_id, user_msg, ai_msg):
     doc_ref = db.collection(user_id).document(str(now))
     doc_ref.set({
         Human: user_message,
         AI_Agent: answer
     })
-    # 一定数会話したら終了画面へ
-    if st.session_state.talk ==5:
-        st.session_state.state = 3
-
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -134,15 +120,6 @@ from langchain_openai import ChatOpenAI
 from langchain_community.chat_message_histories import (
     StreamlitChatMessageHistory,
 )
-
-history = StreamlitChatMessageHistory(key="chat_messages_startedfrom_{}".format(now))
-
-history.add_user_message("hi!")
-history.add_ai_message("whats up?")
-
-
-
-
 
 
 # 最初のAI入力
@@ -159,9 +136,6 @@ if user_input := st.chat_input():
     # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called.
     config = {"configurable": {"session_id": st.session_state.conversation_key}}
     response = chain_with_history.invoke({"input": prompt}, config)
-    
-    time.sleep(3)
-    st.chat_message("agent").write(response.content)
 
 # Draw the messages at the end, so newly generated ones show up immediately
 with 
