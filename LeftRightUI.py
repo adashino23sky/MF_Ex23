@@ -66,80 +66,64 @@ chain_with_history = RunnableWithMessageHistory(
     history_messages_key="history",
 )
 
+# firebaseの設定
+db = firestore.Client(project=CHAT_PROJECT_TEST)
+
 def input_id():
     st.write("idを入力してください")
-    st.session_state.user_id = st.input("IDを入力") # ユーザID取得
+    st.session_state.user_id = st.text_input("IDを入力") # ユーザID取得
     # セッションID初期化
     if not "conversation_key" in st.session_state:
         st.session_state.conversation_key = "{}_{}".format(st.session_state.user_id, now)
     st.session_state.state = 2
 
-# Display chat messages from history on app rerun
-
-
 def chat_page():
     chat_container = st.container(height=600) # st.containerでブロックを定義
     # 会話ログ格納開始
     if not "msgs" in st.session_state:
-        msgs = StreamlitChatMessageHistory(key=st.session_state.conversation_key)
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    for message in st.session_state.messages:
-        with chat_container.chat_message(message["role"]):
-            st.markdown(message["content"])
-    '''
-    for msg in msgs.messages:
-        st.chat_message(msg.type).write(msg.content)
-    '''
+        st.session_state.msgs = StreamlitChatMessageHistory(key="any")
+    for msg in st.session_state.msgs.messages:
+        with chat_container.chat_message(msg.type):
+            st.markdown(msg.content)
+
     if user_input := st.chat_input("入力してね"):
         st.chat_message("human").write(user_input)
+        st.session_state.send_time = str(now)
         st.spinner("待機中…")
         time.sleep(5)
         # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called. 
-        config = {"configurable": {"session_id": st.session_state.conversation_key}}
+        config = {"configurable": {"session_id": "any"}}
         response = chain_with_history.invoke({"input_message": user_input}, config)
-        st.session_state.message("ai").write(response.content)
+        st.chat_message("ai").write(response.content)
+        st.session_state.display_time = str(now)
+        doc_ref = db.collection(user_id).document(st.session_state.send_time)
+        doc_ref.set({
+            Human: user_input,
+            AI_Agent: response.content
+        })
+        if st.session_state.talktime == 5:
+            st.session_state.state = 3
+        else:
+            st.session_state.talktime += 1
 
 
 def chat_ended():
     # チャット履歴を表示
     chat_container = st.container(height=600) # st.containerでブロックを定義
+    for msg in st.session_state.msgs.messages:
+        with chat_container.chat_message(msg.type):
+            st.markdown(msg.content)
+    '''
     for message in st.session_state.messages:
             with chat_container.chat_message(message["role"]):
                 st.markdown(message["content"])
+    '''
+    view_messages = st.expander("View the message contents in session state")
+    with view_messages:
+        view_messages.json(st.session_state.any)
     st.write("お疲れ様でした、下のURLを押してアンケートへ進んでください")
-    new_tab_js = ()
-    st.markdown(new_tab_js, unsafe_allow_html=True)
-    def data_to_fb(user_id, user_msg, ai_msg):
-    doc_ref = db.collection(user_id).document(str(now))
-    doc_ref.set({
-        Human: user_message,
-        AI_Agent: answer
-    })
-
-
-
-# 最初のAI入力
-#if len(msgs.messages) == 0:
-#    msgs.add_ai_message("How can I help you?")
-
-# 表示
-for msg in msgs.messages:
-    st.chat_message(msg.type).write(msg.content)
-# 入力したときに表示
-if user_input := st.chat_input():
-    # 入力したときに表示
-    st.chat_message("user").write(user_input)
-    # As usual, new messages are added to StreamlitChatMessageHistory when the Chain is called.
-    config = {"configurable": {"session_id": st.session_state.conversation_key}}
-    response = chain_with_history.invoke({"input": prompt}, config)
-
-# Draw the messages at the end, so newly generated ones show up immediately
-with 
-    Contents of `st.session_state.langchain_messages`:
-    """
-    view_messages.json(st.session_state.langchain_messages)
-
+    url = "https://www.nagoya-u.ac.jp/"
+    st.markdown("check out this [link](%s)" % url)
 
 def main():
     st.title('チャットボット')
